@@ -1,0 +1,1 @@
+export { DELETE } from '@/features/user/api/delete-account/route'; 

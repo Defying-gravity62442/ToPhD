@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  html {
+    font-family: 'Nanum Myeongjo', serif;
+  }
+}
+
+/* Custom grayscale color utilities for accessibility */
+@layer utilities {
+  .text-success { color: #495057; }
+  .text-error { color: #495057; }
+  .text-warning { color: #495057; }
+  .text-info { color: #495057; }
+  .text-mood { color: #495057; }
+  
+  .bg-success { background-color: #f8f9fa; }
+  .bg-error { background-color: #f8f9fa; }
+  .bg-warning { background-color: #f8f9fa; }
+  .bg-info { background-color: #f8f9fa; }
+  .bg-mood { background-color: #f8f9fa; }
+  
+  .border-success { border-color: #dee2e6; }
+  .border-error { border-color: #dee2e6; }
+  .border-warning { border-color: #dee2e6; }
+  .border-info { border-color: #dee2e6; }
+  .border-mood { border-color: #dee2e6; }
+}

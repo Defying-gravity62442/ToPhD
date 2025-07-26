@@ -1,0 +1,273 @@
+// This file tells your app what data to store in the database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User accounts
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  
+  // User background fields
+  background    String?
+  
+  // AI Assistant preferences
+  assistantName String?   // Custom name for the AI assistant
+  assistantTone String?   // Tone preference: encouraging, inspirational, tough_love
+  
+  // Academic information
+  currentInstitution String?   // Where the user currently goes to school
+  currentDepartment  String?   // User's current department(s) or field of study
+  
+  // Google Calendar integration
+  googleCalendarTokens    String?  @db.Text // Stores JSON with access_token, refresh_token, expiry_date
+  calendarSyncPreferences String?  @db.Text // Stores JSON with sync preferences
+  
+  // End-to-end encryption fields
+  encryptedDEK_password String?
+  encryptedDEK_recovery String?
+  dekSalt               String?
+  recoverySalt          String?
+  recoveryCodeHash      String?
+  recoveryCodeExpiry    DateTime?
+  
+  // Legal agreement fields
+  agreedToPrivacyPolicy DateTime?
+  agreedToTermsOfService DateTime?
+  
+  // Relations (connections to other data)
+  goals         Goal[]
+  journalEntries JournalEntry[]
+  accounts      Account[]
+  sessions      Session[]
+  futureLetters FutureLetter[]
+  companionSummaries CompanionSummary[]
+  companionMessages  CompanionMessage[] // Added for relation
+  weeklySummaries WeeklySummary[]
+  monthlySummaries MonthlySummary[]
+  yearlySummaries YearlySummary[]
+}
+
+// Academic goals (like "Apply to Stanford PhD")
+model Goal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  // targetDate  DateTime?
+  status      String   @default("active") // active, completed, paused
+  createdAt   DateTime @default(now())
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  milestones  Milestone[]
+}
+
+// Individual steps toward a goal
+model Milestone {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  dueDate     String?
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  syncEnabled Boolean  @default(true) // New: controls if this milestone is synced
+  
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+}
+
+// Daily Journal System Models
+model JournalEntry {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime    // The date of the journal entry (unique per user per day)
+  encryptedData String      // Encrypted journal content (markdown)
+  dekId         String      // Reference to user's Data Encryption Key (for E2EE)
+  mood          Mood?       // Optional mood tracking
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tags          JournalEntryTag[]
+  companionSummaries CompanionSummary[]
+  companionMessages  CompanionMessage[] // Added for relation
+  // Index for fast search/filter by user and date
+  @@index([userId, date])
+}
+
+// Tags are user-specific. Only users can create new tags.
+model JournalTag {
+  id        String             @id @default(uuid())
+  userId    String             // Tags are user-specific
+  name      String
+  createdAt DateTime           @default(now())
+  entries   JournalEntryTag[]
+  predefinedTagId String?      // New: reference to PredefinedTag
+  predefinedTag   PredefinedTag? @relation(fields: [predefinedTagId], references: [id])
+  @@unique([userId, name])
+}
+
+// Join table for many-to-many relationship between JournalEntry and JournalTag
+model JournalEntryTag {
+  id              String        @id @default(uuid())
+  journalEntry    JournalEntry  @relation(fields: [journalEntryId], references: [id])
+  journalEntryId  String
+  tag             JournalTag    @relation(fields: [tagId], references: [id])
+  tagId           String
+
+  @@unique([journalEntryId, tagId])
+}
+
+enum Mood {
+  HAPPY
+  SAD
+  NEUTRAL
+  ANXIOUS
+  MOTIVATED
+  STRESSED
+  // ...add more as needed
+}
+
+// Letter to Future Self
+model FutureLetter {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String   // Encrypted letter
+  unlockDate  DateTime
+  createdAt   DateTime @default(now())
+  delivered   Boolean  @default(false)
+  emailSent   Boolean  @default(false)
+  title       String?
+}
+
+// Authentication tables (required by NextAuth)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Predefined tags available to all users
+model PredefinedTag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  journalTags JournalTag[]
+  // Optionally: description, color, icon, etc.
+}
+
+// AI Companion conversation summaries
+model CompanionSummary {
+  id              String        @id @default(uuid())
+  userId          String
+  journalEntryId  String
+  summary         String        // AI-generated summary of the conversation
+  createdAt       DateTime      @default(now())
+  visibleToAI     Boolean       @default(true)
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journalEntry    JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([journalEntryId])
+}
+
+// AI Companion conversation messages (multi-turn)
+model CompanionMessage {
+  id              String        @id @default(uuid())
+  userId          String
+  journalEntryId  String
+  role            String        // 'user' or 'companion'
+  content         String
+  createdAt       DateTime      @default(now())
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journalEntry    JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([userId, journalEntryId, createdAt])
+}
+
+// AI Weekly summary (summary of 7 daily summaries)
+model WeeklySummary {
+  id         String   @id @default(uuid())
+  userId     String
+  startDate  DateTime // Start of the week (e.g., Monday)
+  endDate    DateTime // End of the week (e.g., Sunday)
+  summary    String   // AI-generated summary of the week
+  visibleToAI Boolean @default(true)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate])
+}
+
+// AI Monthly summary (summary of 4 weekly summaries)
+model MonthlySummary {
+  id         String   @id @default(uuid())
+  userId     String
+  month      Int      // 1-12
+  year       Int      // e.g., 2024
+  summary    String   // AI-generated summary of the month
+  visibleToAI Boolean @default(true)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, year, month])
+}
+
+// AI Yearly summary (summary of 12 monthly summaries)
+model YearlySummary {
+  id         String   @id @default(uuid())
+  userId     String
+  year       Int      // e.g., 2024
+  summary    String   // AI-generated summary of the year
+  visibleToAI Boolean @default(true)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, year])
+}
