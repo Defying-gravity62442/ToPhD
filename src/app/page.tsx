@@ -26,10 +26,11 @@ export default function HomePage() {
           }
           
           const onboardingData = await onboardingResponse.json()
-          
-          // If onboarding is not complete, let middleware handle the redirect
+
+          // If onboarding is not complete, redirect to the next step
           if (!onboardingData.isComplete) {
             setIsChecking(false)
+            router.push(`/onboarding/${onboardingData.nextStep}`)
             return
           }
 
@@ -51,7 +52,7 @@ export default function HomePage() {
     }
 
     checkUserStatus()
-  }, [session, isRedirecting])
+  }, [session, isRedirecting, router])
 
   // Handle redirects after status is determined
   useEffect(() => {

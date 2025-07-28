@@ -50,12 +50,14 @@ export async function middleware(request: NextRequest) {
         
         // If onboarding is not complete, redirect to appropriate step
         if (!isComplete) {
-          let redirectUrl = '/onboarding/e2ee'
-          
-          if (nextStep === 'preferences') {
+          let redirectUrl = '/onboarding/consent'
+
+          if (nextStep === 'e2ee') {
+            redirectUrl = '/onboarding/e2ee'
+          } else if (nextStep === 'preferences') {
             redirectUrl = '/onboarding/preferences'
           }
-          
+
           return NextResponse.redirect(new URL(redirectUrl, request.url))
         }
       }

@@ -19,7 +19,10 @@ export async function GET() {
         assistantName: true,
         assistantTone: true,
         currentInstitution: true,
-        currentDepartment: true
+        currentDepartment: true,
+        agreedToPrivacyPolicy: true,
+        agreedToTermsOfService: true,
+        encryptedDEK_password: true,
       }
     })
 
@@ -27,11 +30,27 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const hasCompletedOnboarding = !!(user.assistantName && user.assistantTone)
+    const hasConsent = !!(user.agreedToPrivacyPolicy && user.agreedToTermsOfService)
+    const hasE2EE = !!user.encryptedDEK_password
+    const hasPreferences = !!(user.assistantName && user.assistantTone)
 
-    return NextResponse.json({ 
-      hasCompletedOnboarding,
-      preferences: user
+    let nextStep: 'consent' | 'e2ee' | 'preferences' | 'complete'
+    if (!hasConsent) {
+      nextStep = 'consent'
+    } else if (!hasE2EE) {
+      nextStep = 'e2ee'
+    } else if (!hasPreferences) {
+      nextStep = 'preferences'
+    } else {
+      nextStep = 'complete'
+    }
+
+    return NextResponse.json({
+      hasConsent,
+      hasE2EE,
+      hasPreferences,
+      nextStep,
+      isComplete: nextStep === 'complete'
     })
   } catch (error) {
     console.error('Error checking onboarding status:', error)

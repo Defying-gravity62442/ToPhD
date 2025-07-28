@@ -22,6 +22,8 @@ export async function GET() {
         assistantTone: true,
         currentInstitution: true,
         currentDepartment: true,
+        agreedToPrivacyPolicy: true,
+        agreedToTermsOfService: true,
       }
     })
 
@@ -39,17 +41,22 @@ export async function GET() {
           assistantTone: true,
           currentInstitution: true,
           currentDepartment: true,
+          agreedToPrivacyPolicy: true,
+          agreedToTermsOfService: true,
         }
       })
     }
 
     // Determine onboarding status
+    const hasConsent = !!(user.agreedToPrivacyPolicy && user.agreedToTermsOfService)
     const hasE2EE = !!user.encryptedDEK_password
     const hasPreferences = !!(user.assistantName && user.assistantTone)
 
     // Determine next step
     let nextStep = null
-    if (!hasE2EE) {
+    if (!hasConsent) {
+      nextStep = 'consent'
+    } else if (!hasE2EE) {
       nextStep = 'e2ee'
     } else if (!hasPreferences) {
       nextStep = 'preferences'
@@ -58,6 +65,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      hasConsent,
       hasE2EE,
       hasPreferences,
       nextStep,
