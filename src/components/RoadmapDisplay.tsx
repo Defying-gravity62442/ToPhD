@@ -267,7 +267,7 @@ export default function Roadmap({
                         <button
                           type="button"
                           onClick={() => onGoalDelete(goal.id)}
-                          className="text-gray-500 hover:text-gray-700 transition-colors p-1"
+                          className="text-red-500 hover:text-red-700 transition-colors p-1"
                           title="Delete goal"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -398,7 +398,7 @@ export default function Roadmap({
                                       <button
                                         type="button"
                                         onClick={() => onMilestoneDelete(goal.id, milestone.id)}
-                                        className="text-gray-500 hover:text-gray-700 transition-colors p-1"
+                                        className="text-red-500 hover:text-red-700 transition-colors p-1"
                                         title="Delete milestone"
                                       >
                                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

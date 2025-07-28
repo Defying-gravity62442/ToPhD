@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Roadmap from '@/components/RoadmapDisplay';
 import JournalSummary from '@/components/JournalSummary';
+import AICompanion from '@/components/AICompanion';
 import { useDEK } from '@/components/DEKProvider';
-import { aesGcmDecrypt, aesGcmEncrypt, safeBase64Decode } from '@/lib/client-crypto';
+import { aesGcmDecrypt, aesGcmEncrypt, safeBase64Decode, validateDEK } from '@/lib/client-crypto';
 import UnlockDEKModal from '@/components/UnlockDEKModal';
 import ReactMarkdown from 'react-markdown';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useSession, signOut } from 'next-auth/react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 import PastDueMilestoneModal from '@/components/PastDueMilestoneModal';
 import { getJournalDate, getUserTimeZone } from '@/lib/date-utils';
 
@@ -58,11 +59,9 @@ export default function DashboardPage() {
 
   // AI Companion state
   const [companionMessages, setCompanionMessages] = useState<CompanionMessage[]>([]);
-  const [companionInput, setCompanionInput] = useState('');
   const [companionLoading, setCompanionLoading] = useState(false);
   const [companionError, setCompanionError] = useState<string | null>(null);
   const [companionStarted, setCompanionStarted] = useState(false);
-  const [userInitiatedConversation, setUserInitiatedConversation] = useState(false);
 
   // Upcoming milestones state
   const [upcomingMilestones, setUpcomingMilestones] = useState<Array<{
@@ -92,8 +91,7 @@ export default function DashboardPage() {
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [syncEnabledMap, setSyncEnabledMap] = useState<Record<string, boolean>>({});
 
-  // Add state for showing the companion input box
-  const [showCompanionInput, setShowCompanionInput] = useState(false);
+
 
   // Mood Analytics state
   const [moodData, setMoodData] = useState<{ mood: string | null; _count: { mood: number } }[]>([]);
@@ -110,8 +108,10 @@ export default function DashboardPage() {
   const [currentPastDueIndex, setCurrentPastDueIndex] = useState(0);
   const [showPastDueModal, setShowPastDueModal] = useState(false);
 
-  // Chat container ref for auto-scroll
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  // Add state for journal entry count
+  const [journalEntryCount, setJournalEntryCount] = useState<number | null>(null);
+
+
 
   // Auto-clear update errors
   useEffect(() => {
@@ -121,15 +121,7 @@ export default function DashboardPage() {
     }
   }, [updateError]);
 
-  // Auto-scroll to bottom when new messages are added
-  useEffect(() => {
-    if (chatContainerRef.current && companionMessages.length > 0) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
-  }, [companionMessages]);
+
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -267,6 +259,14 @@ export default function DashboardPage() {
     const fetchTodayJournal = async () => {
       if (!dek) return;
       
+      // Validate DEK format before using it
+      const dekValidation = validateDEK(dek);
+      if (!dekValidation.isValid) {
+        console.error('Invalid DEK format for journal:', dekValidation.error);
+        setJournalContent('Unable to decrypt journal entry. Please unlock your data again.');
+        return;
+      }
+      
       const today = getJournalDate(getUserTimeZone());
       
       try {
@@ -284,17 +284,26 @@ export default function DashboardPage() {
             setJournalEntryId(entry.id);
             
             // Decrypt the journal content
-            const dekKey = await window.crypto.subtle.importKey(
-              'raw',
-              safeBase64Decode(dek),
-              { name: 'AES-GCM' },
-              false,
-              ['decrypt']
-            );
+            let dekKey: CryptoKey;
+            try {
+              dekKey = await window.crypto.subtle.importKey(
+                'raw',
+                safeBase64Decode(dek),
+                { name: 'AES-GCM' },
+                false,
+                ['decrypt']
+              );
+            } catch (e) {
+              console.error('Failed to import DEK for journal decryption:', e);
+              setJournalContent('Unable to decrypt journal entry. Please unlock your data again.');
+              return;
+            }
             const decrypted = await aesGcmDecrypt(entry.encryptedData, dekKey);
             setJournalContent(decrypted);
             setLastSaved(new Date(entry.updatedAt));
           }
+        } else {
+          console.error('Failed to fetch journal entry:', res.status);
         }
       } catch (error) {
         if (!isMounted) return;
@@ -323,6 +332,13 @@ export default function DashboardPage() {
     
     const autoSave = async () => {
       if (!isMounted) return;
+      
+      // Validate DEK format before using it
+      const dekValidation = validateDEK(dek);
+      if (!dekValidation.isValid) {
+        console.error('Invalid DEK format for auto-save:', dekValidation.error);
+        return;
+      }
       
       setIsSavingJournal(true);
       try {
@@ -405,19 +421,34 @@ export default function DashboardPage() {
         setDecryptedGoals([]);
         return;
       }
+      
+      // Validate DEK format before using it
+      const dekValidation = validateDEK(dek);
+      if (!dekValidation.isValid) {
+        console.error('Invalid DEK format for goals:', dekValidation.error);
+        setDecryptedGoals([]);
+        return;
+      }
       if (goals.length === 0) {
         setDecryptedGoals([]);
         return;
       }
       
       try {
-        const dekKey = await window.crypto.subtle.importKey(
-          'raw',
-          safeBase64Decode(dek),
-          { name: 'AES-GCM' },
-          false,
-          ['encrypt', 'decrypt']
-        );
+        let dekKey: CryptoKey;
+        try {
+          dekKey = await window.crypto.subtle.importKey(
+            'raw',
+            safeBase64Decode(dek),
+            { name: 'AES-GCM' },
+            false,
+            ['encrypt', 'decrypt']
+          );
+        } catch (e) {
+          console.error('Failed to import DEK for goals decryption:', e);
+          setDecryptedGoals([]);
+          return;
+        }
         
         const decrypted = await Promise.all(
           goals.map(async (goal) => {
@@ -555,6 +586,8 @@ export default function DashboardPage() {
         if (res.ok) {
           const data = await res.json();
           setAssistantName(data.assistantName || '');
+        } else {
+          console.error('Failed to fetch assistant name:', res.status);
         }
       } catch (err) {
         if (!isMounted) return;
@@ -583,6 +616,15 @@ export default function DashboardPage() {
     const fetchCompanionMessages = async () => {
       if (!journalEntryId || !dek) return;
       
+      // Validate DEK format before using it
+      const dekValidation = validateDEK(dek);
+      if (!dekValidation.isValid) {
+        console.error('Invalid DEK format:', dekValidation.error);
+        setCompanionMessages([]);
+        setCompanionStarted(false);
+        return;
+      }
+      
       try {
         abortController = new AbortController();
         const res = await fetch(`/api/journal/${journalEntryId}/companion`, {
@@ -601,13 +643,22 @@ export default function DashboardPage() {
             return;
           }
           
-          const dekKey = await window.crypto.subtle.importKey(
-            'raw',
-            safeBase64Decode(dek),
-            { name: 'AES-GCM' },
-            false,
-            ['decrypt']
-          );
+          let dekKey: CryptoKey;
+          try {
+            dekKey = await window.crypto.subtle.importKey(
+              'raw',
+              safeBase64Decode(dek),
+              { name: 'AES-GCM' },
+              false,
+              ['decrypt']
+            );
+          } catch (e) {
+            console.error('Failed to import DEK:', e);
+            // If DEK is invalid, clear the messages and show error
+            setCompanionMessages([]);
+            setCompanionStarted(false);
+            return;
+          }
           
           // Decrypt messages for UI display
           const decryptedMessages = await Promise.all(
@@ -633,10 +684,11 @@ export default function DashboardPage() {
             setCompanionStarted(hasExistingMessages);
             // If there are existing messages, automatically show the chat interface
             if (hasExistingMessages) {
-              setUserInitiatedConversation(true);
-              setShowCompanionInput(true);
+              // Chat interface will be shown automatically by the component
             }
           }
+        } else {
+          console.error('Failed to fetch companion messages:', res.status);
         }
       } catch (error) {
         if (!isMounted) return;
@@ -656,6 +708,47 @@ export default function DashboardPage() {
       }
     };
   }, [journalEntryId, dek]);
+
+  // Fetch journal entry count with proper cleanup
+  useEffect(() => {
+    let isMounted = true;
+    let abortController: AbortController | null = null;
+    
+    const fetchJournalCount = async () => {
+      if (status !== 'authenticated') return;
+      
+      try {
+        abortController = new AbortController();
+        const res = await fetch('/api/journal', {
+          signal: abortController.signal
+        });
+        
+        if (!isMounted) return;
+        
+        if (res.ok) {
+          const data = await res.json();
+          setJournalEntryCount(data.entries?.length || 0);
+        } else {
+          console.error('Failed to fetch journal count:', res.status);
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        console.error('Error fetching journal count:', err);
+      }
+    };
+    
+    fetchJournalCount();
+    
+    return () => {
+      isMounted = false;
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [status]);
 
   // Fetch mood analytics with proper cleanup
   useEffect(() => {
@@ -741,7 +834,14 @@ export default function DashboardPage() {
   const sendCompanionMessage = async (message: string) => {
     if (!journalEntryId || companionLoading || !dek) return;
     
-    setUserInitiatedConversation(true);
+    // Validate DEK format before using it
+    const dekValidation = validateDEK(dek);
+    if (!dekValidation.isValid) {
+      console.error('Invalid DEK format:', dekValidation.error);
+      setCompanionError('Encryption key is invalid. Please unlock your data again.');
+      return;
+    }
+    
     setCompanionLoading(true);
     setCompanionError(null);
     
@@ -754,16 +854,34 @@ export default function DashboardPage() {
       setCompanionError('Request timed out. Please try again.');
     }, 30000);
     
+    // Immediately add user message to the conversation
+    const newUserMessage = {
+      role: 'user' as const,
+      content: message,
+      id: `temp-${Date.now()}-user`,
+      createdAt: new Date().toISOString()
+    };
+    
+    setCompanionMessages(prev => [...prev, newUserMessage]);
+    setCompanionStarted(true);
+    
     try {
-      const dekKey = await window.crypto.subtle.importKey(
-        'raw',
-        safeBase64Decode(dek),
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt', 'decrypt']
-      );
+      let dekKey: CryptoKey;
+      try {
+        dekKey = await window.crypto.subtle.importKey(
+          'raw',
+          safeBase64Decode(dek),
+          { name: 'AES-GCM' },
+          false,
+          ['encrypt', 'decrypt']
+        );
+      } catch (e) {
+        console.error('Failed to import DEK for message sending:', e);
+        setCompanionError('Encryption key is invalid. Please unlock your data again.');
+        return;
+      }
       
-      // 1. Decrypt existing conversation history
+      // 1. Decrypt existing conversation history (excluding the just-added user message)
       const conversationHistory = await Promise.all(
         companionMessages.map(async (msg) => {
           try {
@@ -781,6 +899,12 @@ export default function DashboardPage() {
           }
         })
       );
+      
+      // Add the current user message to conversation history
+      conversationHistory.push({
+        role: 'user',
+        content: message
+      });
       
       // 2. Send to AI service
       const res = await fetch(`/api/journal/${journalEntryId}/companion`, {
@@ -812,15 +936,12 @@ export default function DashboardPage() {
         return;
       }
       
-      // Create the new conversation with user message and AI response
-      const newUserMessage = {
-        role: 'user' as const,
-        content: message
-      };
-      
+      // Create the AI response message
       const newCompanionMessage = {
         role: 'companion' as const,
-        content: aiResponse
+        content: aiResponse,
+        id: `temp-${Date.now()}-companion`,
+        createdAt: new Date().toISOString()
       };
       
       // 3. Encrypt both messages for storage
@@ -847,16 +968,8 @@ export default function DashboardPage() {
         // Don't fail the UI update if storage fails
       }
       
-      // 5. Update UI with plaintext
-      const updatedMessages = [
-        ...companionMessages,
-        { id: `temp-${Date.now()}-1`, ...newUserMessage, createdAt: new Date().toISOString() },
-        { id: `temp-${Date.now()}-2`, ...newCompanionMessage, createdAt: new Date().toISOString() }
-      ];
-      setCompanionMessages(updatedMessages);
-      
-      setCompanionInput('');
-      setCompanionStarted(true);
+      // 5. Add AI response to the conversation
+      setCompanionMessages(prev => [...prev, newCompanionMessage]);
       
     } catch (err) {
       clearTimeout(timeoutId);
@@ -880,15 +993,28 @@ export default function DashboardPage() {
   const handleSaveLetter = async (data: { title: string; content: string; unlockDate: string }) => {
     if (!dek) return;
     
+    // Validate DEK format before using it
+    const dekValidation = validateDEK(dek);
+    if (!dekValidation.isValid) {
+      console.error('Invalid DEK format for letter save:', dekValidation.error);
+      return;
+    }
+    
     setIsSavingLetter(true);
     try {
-      const dekKey = await window.crypto.subtle.importKey(
-        'raw',
-        safeBase64Decode(dek),
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt']
-      );
+      let dekKey: CryptoKey;
+      try {
+        dekKey = await window.crypto.subtle.importKey(
+          'raw',
+          safeBase64Decode(dek),
+          { name: 'AES-GCM' },
+          false,
+          ['encrypt']
+        );
+      } catch (e) {
+        console.error('Failed to import DEK for journal encryption:', e);
+        return;
+      }
 
       const encryptedTitle = data.title.trim() ? await aesGcmEncrypt(data.title.trim(), dekKey) : null;
       const encryptedContent = await aesGcmEncrypt(data.content, dekKey);
@@ -913,6 +1039,8 @@ export default function DashboardPage() {
         if (res.ok) {
           const data = await res.json();
           setFutureLetters(data || []);
+        } else {
+          console.error('Failed to refresh letters:', res.status);
         }
       }
     } catch (error) {
@@ -925,19 +1053,32 @@ export default function DashboardPage() {
   const handleReadLetter = async (letterId: string) => {
     if (!dek) return;
     
+    // Validate DEK format before using it
+    const dekValidation = validateDEK(dek);
+    if (!dekValidation.isValid) {
+      console.error('Invalid DEK format for letter read:', dekValidation.error);
+      return;
+    }
+    
     try {
       const res = await fetch(`/api/future-letters/${letterId}`);
       if (res.ok) {
         const letter = await res.json();
         
         // Decrypt the content
-        const dekKey = await window.crypto.subtle.importKey(
-          'raw',
-          safeBase64Decode(dek),
-          { name: 'AES-GCM' },
-          false,
-          ['decrypt']
-        );
+        let dekKey: CryptoKey;
+        try {
+          dekKey = await window.crypto.subtle.importKey(
+            'raw',
+            safeBase64Decode(dek),
+            { name: 'AES-GCM' },
+            false,
+            ['decrypt']
+          );
+        } catch (e) {
+          console.error('Failed to import DEK for letter decryption:', e);
+          return;
+        }
 
         const decryptedContent = await aesGcmDecrypt(letter.content, dekKey);
         const decryptedTitle = letter.title ? await aesGcmDecrypt(letter.title, dekKey) : '';
@@ -946,6 +1087,8 @@ export default function DashboardPage() {
         setLetterContent(decryptedContent);
         setLetterTitle(decryptedTitle);
         setLetterUnlockDate(letter.unlockDate);
+      } else {
+        console.error('Failed to read letter:', res.status);
       }
     } catch (error) {
       console.error('Error reading letter:', error);
@@ -1230,7 +1373,7 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-6">
             {dek && (
               <div className="relative group">
-                <svg className="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
                 <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-max bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
@@ -1264,7 +1407,9 @@ export default function DashboardPage() {
                   <span className="text-xs text-gray-500">Goals</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-lg font-semibold text-gray-900">—</span>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {journalEntryCount !== null ? journalEntryCount : '—'}
+                  </span>
                   <span className="text-xs text-gray-500">Journal entries</span>
                 </div>
               </div>
@@ -1319,146 +1464,25 @@ export default function DashboardPage() {
               </div>
 
               {/* AI Companion Card */}
-              <div className={`bg-black text-white rounded-xl shadow-sm p-6 flex flex-col ${
-                (userInitiatedConversation || showCompanionInput || companionMessages.length > 0) ? 'min-h-96' : ''
-              }`}>
-                <h3 className="text-lg font-bold mb-4 font-['Nanum_Myeongjo']">{assistantName || 'AI Companion'}</h3>
-                
-                {!dek ? (
-                  <p className="text-gray-300 font-['Nanum_Myeongjo']">Unlock your data to chat with your {assistantName || 'AI companion'}</p>
-                ) : !journalEntryId ? (
-                  <p className="text-gray-300 font-['Nanum_Myeongjo']">Start writing in your journal to begin a conversation</p>
-                ) : !companionStarted ? (
-                  <div className="space-y-3">
-                    <p className="text-gray-300 font-['Nanum_Myeongjo']">Ready to reflect on your journal entry?</p>
-                    <button
-                      onClick={() => {
-                        const baseMsg = "I'd like to reflect on my journal entry today.";
-                        const msg = journalContent.trim()
-                          ? `${baseMsg} Here is what I wrote: ${journalContent}`
-                          : baseMsg;
-                        sendCompanionMessage(msg);
-                      }}
-                      disabled={companionLoading || !journalContent.trim()}
-                      className="w-full bg-white text-gray-900 hover:bg-gray-100 font-semibold py-2 px-4 rounded-lg transition font-['Nanum_Myeongjo'] disabled:opacity-50"
-                    >
-                      {companionLoading ? 'Starting conversation...' : 'Start conversation'}
-                    </button>
-                  </div>
-                ) : (
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key="chat-area"
-                      initial={{ opacity: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className="space-y-4"
-                    >
-                      <div ref={chatContainerRef} className="flex-1 min-h-32 max-h-64 sm:max-h-80 lg:max-h-96 overflow-y-auto space-y-3">
-                        <AnimatePresence initial={false}>
-                          {companionMessages.map((msg, idx) => (
-                            <motion.div
-                              key={idx}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 20 }}
-                              transition={{ duration: 0.3, delay: idx * 0.05 }}
-                              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div className={`max-w-xs lg:max-w-sm rounded-lg px-3 py-2 ${
-                                msg.role === 'user' 
-                                  ? 'bg-white text-gray-900' 
-                                  : 'bg-gray-800 text-gray-100'
-                              }`}>
-                                <div className="text-xs opacity-70 mb-1 font-['Nanum_Myeongjo']">
-                                  {msg.role === 'user' ? 'You' : (assistantName || 'Companion')}
-                                </div>
-                                <div className="text-sm font-['Nanum_Myeongjo'] prose prose-sm max-w-none prose-invert">
-                                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                                </div>
-                              </div>
-                            </motion.div>
-                          ))}
-                          {companionLoading && (
-                            <motion.div
-                              key="companion-loading"
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 20 }}
-                              transition={{ duration: 0.3, delay: companionMessages.length * 0.05 }}
-                              className="flex justify-start"
-                            >
-                              <div className="bg-gray-800 text-gray-100 rounded-lg px-3 py-2 max-w-xs lg:max-w-sm">
-                                <div className="text-xs opacity-70 mb-1 font-['Nanum_Myeongjo']">{assistantName || 'Companion'}</div>
-                                <div className="text-sm font-['Nanum_Myeongjo']">Thinking...</div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      
-                      {(userInitiatedConversation || showCompanionInput || companionMessages.length > 0) && (
-                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                          <input
-                            value={companionInput}
-                            onChange={(e) => setCompanionInput(e.target.value)}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter' && companionInput.trim()) {
-                                sendCompanionMessage(companionInput.trim());
-                              }
-                            }}
-                            placeholder="Type your message..."
-                            className="flex-1 rounded-lg px-3 py-2 bg-white text-gray-900 border border-gray-300 font-['Nanum_Myeongjo']"
-                            disabled={companionLoading}
-                          />
-                          <button
-                            onClick={() => {
-                              if (companionInput.trim()) sendCompanionMessage(companionInput.trim());
-                            }}
-                            disabled={companionLoading || !companionInput.trim()}
-                            className="bg-white text-gray-900 hover:bg-gray-100 font-semibold py-2 px-4 rounded-lg transition font-['Nanum_Myeongjo'] disabled:opacity-50"
-                          >
-                            Send
-                          </button>
-                        </div>
-                      )}
-                      
-                      {companionMessages.length > 0 && !userInitiatedConversation && !showCompanionInput && (
-                        <div className="space-y-3">
-                          <p className="text-gray-300 font-['Nanum_Myeongjo']">Ready to continue the conversation?</p>
-                          <button
-                            onClick={() => setShowCompanionInput(true)}
-                            disabled={companionLoading}
-                            className="w-full bg-white text-gray-900 hover:bg-gray-100 font-semibold py-2 px-4 rounded-lg transition font-['Nanum_Myeongjo'] disabled:opacity-50"
-                          >
-                            Continue conversation
-                          </button>
-                        </div>
-                      )}
-                      
-                      {companionError && (
-                        <div className="flex items-center justify-between text-gray-300 text-xs font-['Nanum_Myeongjo']">
-                          <span>{companionError}</span>
-                          <button
-                            onClick={resetCompanionState}
-                            className="text-gray-400 hover:text-gray-300 underline"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                )}
-              </div>
+              <AICompanion
+                assistantName={assistantName}
+                journalContent={journalContent}
+                journalEntryId={journalEntryId}
+                dek={dek}
+                onSendMessage={sendCompanionMessage}
+                messages={companionMessages}
+                loading={companionLoading}
+                error={companionError}
+                started={companionStarted}
+                onReset={resetCompanionState}
+              />
             </div>
 
             {/* Data Security Status */}
             {!dek && (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
                 <div className="flex items-center mb-3">
-                  <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5 text-orange-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                   <h3 className="font-medium text-gray-800 font-['Nanum_Myeongjo']">Data Locked</h3>
@@ -1793,7 +1817,7 @@ export default function DashboardPage() {
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => handleDeleteLetter(selectedLetter)}
-                      className="text-gray-600 hover:text-gray-800"
+                      className="text-red-600 hover:text-red-800"
                       title="Delete letter"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1841,8 +1865,10 @@ export default function DashboardPage() {
                   setDek(data.dek);
                   setShowUnlockModal(false);
                   return true;
+                } else {
+                  console.error('Failed to unlock DEK:', res.status);
+                  return false;
                 }
-                return false;
               } catch (error) {
                 console.error('Error unlocking DEK:', error);
                 return false;

@@ -43,7 +43,7 @@ function DEKGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      // Fetch user info to check if E2EE is set up
+      // Check E2EE status
       fetch('/api/user/me')
         .then(res => {
           if (!res.ok) throw new Error('Failed to fetch user')
@@ -66,7 +66,7 @@ function DEKGate({ children }: { children: React.ReactNode }) {
           setLoading(false)
         })
         .catch(error => {
-          console.error('Error fetching user:', error)
+          console.error('Error checking user status:', error)
           // On error, allow access without E2EE
           setLoading(false)
           setAllowSkip(true)
@@ -74,6 +74,9 @@ function DEKGate({ children }: { children: React.ReactNode }) {
     } else if (status === 'unauthenticated') {
       setShowModal(false)
       setLoading(false)
+    } else if (status === 'loading') {
+      // Keep loading while session is loading
+      setLoading(true)
     }
   }, [status])
 
@@ -121,7 +124,7 @@ function DEKGate({ children }: { children: React.ReactNode }) {
     // User can use app without E2EE for now
   }
 
-  if (loading || status === 'loading') {
+  if (loading) {
     return <div>Loading...</div>
   }
 

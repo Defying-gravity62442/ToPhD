@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/authOptions';
-
-const prisma = new PrismaClient()
+import { authOptions } from '@/lib/authOptions'
+import { prisma } from '@/lib/prisma'
+import { isValidBase64 } from '@/lib/client-crypto'
 
 export async function GET(request: NextRequest) {
   try {
@@ -191,17 +190,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Validate base64 for title/description if present
-    function isBase64(str: string) {
-      try {
-        return btoa(atob(str)) === str;
-          } catch {
-      return false;
-    }
-    }
-    if (processedUpdates.title && typeof processedUpdates.title === 'string' && !isBase64(processedUpdates.title)) {
+    if (processedUpdates.title && typeof processedUpdates.title === 'string' && !isValidBase64(processedUpdates.title)) {
       return NextResponse.json({ error: 'Title must be base64-encoded' }, { status: 400 });
     }
-    if (processedUpdates.description && typeof processedUpdates.description === 'string' && !isBase64(processedUpdates.description)) {
+    if (processedUpdates.description && typeof processedUpdates.description === 'string' && !isValidBase64(processedUpdates.description)) {
       return NextResponse.json({ error: 'Description must be base64-encoded' }, { status: 400 });
     }
 

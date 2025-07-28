@@ -138,11 +138,32 @@ export default function JournalHistoryPage() {
   })
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    if (!dateString) {
+      return 'Invalid date';
+    }
+    
+    // The date stored in the database is already the correct "journal date"
+    // (with timezone and 3 AM cutoff applied), so we should treat it as local
+    const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return 'Invalid date';
+    }
+    
+    // Extract just the date part (YYYY-MM-DD) and create a new date
+    // This ensures we don't get timezone conversion issues
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const localDate = new Date(year, month, day);
+    
+    return localDate.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    })
+    });
   }
 
   const moodOptions = ['HAPPY', 'SAD', 'NEUTRAL', 'ANXIOUS', 'MOTIVATED', 'STRESSED']
@@ -347,7 +368,7 @@ export default function JournalHistoryPage() {
                             }}
                           >Edit</button>
                           <button
-                            className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700 disabled:opacity-50"
+                            className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
                             disabled={cooling}
                             title={cooling ? 'Deletion will be available after the 7-day cooling period to encourage authentic reflection.' : 'Delete this entry'}
                             onClick={e => {
@@ -454,7 +475,7 @@ function DeleteConversationButton({ entry }: { entry: JournalEntry }) {
   if (!hasConversation) return null
   return (
     <button
-                  className="px-3 py-2 rounded bg-gray-100 text-gray-700 disabled:opacity-50"
+                  className="px-3 py-2 rounded bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
       disabled={cooling || loading}
       title={cooling ? 'You can delete this conversation after the 7-day cooling period.' : 'Delete this conversation'}
       onClick={async () => {

@@ -4,91 +4,34 @@ import Link from 'next/link'
 import { signIn, useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import LegalAgreementModal from '@/components/LegalAgreementModal'
 
 export default function HomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [hasGoals, setHasGoals] = useState<boolean | null>(null)
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
-  const [showLegalAgreement, setShowLegalAgreement] = useState(false)
-  const [hasAgreedToLegal, setHasAgreedToLegal] = useState<boolean | null>(null)
 
   useEffect(() => {
     const checkUserStatus = async () => {
       if (session?.user?.email && !isRedirecting) {
         setIsChecking(true)
         try {
-          // Check if user has agreed to legal terms
-          const legalResponse = await fetch('/api/user/legal-agreement')
-          const legalData = legalResponse.ok ? await legalResponse.json() : null
-          const hasAgreed = legalData?.hasAgreedToPrivacyPolicy && legalData?.hasAgreedToTermsOfService
-
-          if (!hasAgreed) {
-            // Check if agreement was stored in session storage during pre-OAuth flow
-            const sessionAgreement = sessionStorage.getItem('legalAgreement')
-            if (sessionAgreement) {
-              try {
-                const agreementData = JSON.parse(sessionAgreement)
-                // Record the agreement in the database
-                const recordResponse = await fetch('/api/user/legal-agreement', {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(agreementData),
-                })
-                
-                if (recordResponse.ok) {
-                  // Clear session storage
-                  sessionStorage.removeItem('legalAgreement')
-                  setHasAgreedToLegal(true)
-                } else {
-                  setHasAgreedToLegal(false)
-                  setShowLegalAgreement(true)
-                  setIsChecking(false)
-                  return
-                }
-              } catch (error) {
-                console.error('Error processing session agreement:', error)
-                setHasAgreedToLegal(false)
-                setShowLegalAgreement(true)
-                setIsChecking(false)
-                return
-              }
-            } else {
-              setHasAgreedToLegal(false)
-              setShowLegalAgreement(true)
-              setIsChecking(false)
-              return
-            }
-          } else {
-            setHasAgreedToLegal(true)
-          }
-
-          // Check if user has E2EE set up
-          const userRes = await fetch('/api/user/me')
-          const user = userRes.ok ? await userRes.json() : null
-          const hasE2EE = user?.hasE2EE
-
-          // Check if user has completed preferences
-          const preferencesResponse = await fetch('/api/user/preferences')
-          const hasPreferences = preferencesResponse.ok && (await preferencesResponse.json()).preferences?.assistantName
-
-          if (!hasE2EE) {
-            setIsRedirecting(true)
-            router.push('/onboarding/e2ee')
+          // Check onboarding status
+          const onboardingResponse = await fetch('/api/user/onboarding-status')
+          if (!onboardingResponse.ok) {
+            console.error('Failed to check onboarding status:', onboardingResponse.status)
+            setIsChecking(false)
             return
           }
-          if (!hasPreferences) {
-            setIsRedirecting(true)
-            router.push('/onboarding/preferences')
+          
+          const onboardingData = await onboardingResponse.json()
+          
+          // If onboarding is not complete, let middleware handle the redirect
+          if (!onboardingData.isComplete) {
+            setIsChecking(false)
             return
           }
-
-          setHasCompletedOnboarding(true)
 
           // Check if user has goals
           const goalsResponse = await fetch('/api/goals')
@@ -101,7 +44,6 @@ export default function HomePage() {
         } catch (error) {
           console.error('Error checking user status:', error)
           setHasGoals(false)
-          setHasCompletedOnboarding(false)
         } finally {
           setIsChecking(false)
         }
@@ -109,37 +51,25 @@ export default function HomePage() {
     }
 
     checkUserStatus()
-  }, [session, router, isRedirecting])
+  }, [session, isRedirecting])
 
   // Handle redirects after status is determined
   useEffect(() => {
-    if (session && hasCompletedOnboarding === true && !isRedirecting && !isChecking && hasAgreedToLegal === true) {
+    if (session && !isRedirecting && !isChecking && hasGoals !== null) {
       if (hasGoals === true) {
-        // User has completed onboarding and has goals - redirect to dashboard
+        // User has goals - redirect to dashboard
         setIsRedirecting(true)
         router.push('/dashboard')
       } else if (hasGoals === false) {
-        // User has completed onboarding but no goals - redirect to create goal
+        // User has no goals - redirect to create goal
         setIsRedirecting(true)
         router.push('/create-goal')
       }
     }
-  }, [session, hasCompletedOnboarding, hasGoals, isRedirecting, isChecking, hasAgreedToLegal, router])
+  }, [session, hasGoals, isRedirecting, isChecking, router])
 
   const handleStartWithGoogle = () => {
-    // Show legal agreement modal before proceeding to OAuth
-    setShowLegalAgreement(true)
-  }
-
-  const handleLegalAgreement = () => {
-    setShowLegalAgreement(false)
-    // Proceed to Google OAuth after agreement
     signIn('google')
-  }
-
-  const handleLegalDecline = () => {
-    setShowLegalAgreement(false)
-    // User declined, stay on homepage
   }
 
   if (status === "loading" || isChecking || isRedirecting) {
@@ -148,8 +78,8 @@ export default function HomePage() {
     </div>
   }
 
-  if (session) {
-    // Show loading while determining redirect
+  // If user is authenticated but we're still determining their status, show loading
+  if (session && hasGoals === null) {
     return <div className="min-h-screen flex items-center justify-center">
       <div className="text-xl">Loading...</div>
     </div>
@@ -218,8 +148,6 @@ export default function HomePage() {
       <footer className="bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
           <nav aria-label="Footer" className="flex flex-col sm:flex-row gap-6 sm:gap-10 justify-center mb-4 text-sm">
-            <a href="https://github.com/Defying-gravity62442/ToPhD/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800 transition font-['Nanum_Myeongjo']">Privacy Policy</a>
-            <a href="https://github.com/Defying-gravity62442/ToPhD/blob/main/TERMS.md" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800 transition font-['Nanum_Myeongjo']">Terms of Service</a>
           </nav>
           <p className="text-center text-sm text-gray-600 font-['Nanum_Myeongjo'] mb-2">
             If you have any suggestions or complaints, please contact us at <a href="mailto:heming@cs.washington.edu" className="underline hover:text-gray-800">heming@cs.washington.edu</a>.
@@ -229,13 +157,6 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
-
-      {/* Legal Agreement Modal */}
-      <LegalAgreementModal
-        isOpen={showLegalAgreement}
-        onAgree={handleLegalAgreement}
-        onDecline={handleLegalDecline}
-      />
     </div>
   )
 }

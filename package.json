@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && next build"
+    "vercel-build": "prisma generate && next build",
+    "generate-summaries": "tsx scripts/generate-companion-summaries.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.848.0",

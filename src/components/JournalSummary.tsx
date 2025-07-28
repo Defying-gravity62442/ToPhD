@@ -161,10 +161,31 @@ export default function JournalSummary() {
   }, [dek])
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    if (!dateString) {
+      return 'Invalid date';
+    }
+    
+    // The date stored in the database is already the correct "journal date"
+    // (with timezone and 3 AM cutoff applied), so we should treat it as local
+    const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return 'Invalid date';
+    }
+    
+    // Extract just the date part (YYYY-MM-DD) and create a new date
+    // This ensures we don't get timezone conversion issues
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const localDate = new Date(year, month, day);
+    
+    return localDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
-    })
+    });
   }
 
   const getMoodColor = (mood: string) => {

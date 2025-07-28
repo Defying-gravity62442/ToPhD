@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import EditableMilestone from '@/components/EditableMilestone'
 import SearchSources from '@/components/SearchSources'
@@ -12,6 +13,7 @@ import { aesGcmEncrypt, safeBase64Decode } from '@/lib/client-crypto';
 import ReactMarkdown from 'react-markdown';
 
 export default function CreateGoalPage() {
+  const { status } = useSession()
   const router = useRouter()
   const [goalText, setGoalText] = useState('')
   // Rotating placeholder state
@@ -49,7 +51,7 @@ export default function CreateGoalPage() {
     if (status === 'unauthenticated') {
       router.push('/')
     }
-  }, [router])
+  }, [router, status])
 
   // Show loading while checking authentication
   if (status === 'loading') {

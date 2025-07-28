@@ -18,7 +18,14 @@ export async function getStoredTokens(userEmail: string) {
       select: { googleCalendarTokens: true }
     });
     if (!user?.googleCalendarTokens) return null;
-    return JSON.parse(user.googleCalendarTokens);
+    
+    try {
+      return JSON.parse(user.googleCalendarTokens);
+    } catch (parseError) {
+      console.error('Failed to parse stored Google Calendar tokens as JSON:', parseError);
+      console.error('Raw tokens data:', user.googleCalendarTokens);
+      return null;
+    }
   } catch (error) {
     console.error('Error getting stored tokens:', error);
     return null;

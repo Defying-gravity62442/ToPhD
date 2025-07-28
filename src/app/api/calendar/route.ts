@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         'https://www.googleapis.com/auth/calendar',
         'https://www.googleapis.com/auth/calendar.events'
       ],
-      prompt: tokens ? 'none' : 'consent' // Only prompt for consent if no tokens exist
+      prompt: tokens ? 'none' : 'select_account' // Only prompt for account selection if no tokens exist
     });
 
     console.log('OAuth Redirect URI:', REDIRECT_URI);

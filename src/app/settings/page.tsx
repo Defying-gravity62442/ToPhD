@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import SettingsProfileSection from '@/components/SettingsProfileSection';
 import SettingsIntegrationsSection from '@/components/SettingsIntegrationsSection';
@@ -12,6 +12,7 @@ import { useDecryptedGoals } from '@/app/providers';
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [assistantName, setAssistantName] = useState('')
   const [assistantTone, setAssistantTone] = useState('encouraging')
   const [currentInstitution, setCurrentInstitution] = useState('')
@@ -33,6 +34,21 @@ export default function SettingsPage() {
       router.push('/')
     }
   }, [status, router])
+
+  // Handle URL parameters for section selection
+  useEffect(() => {
+    const calendar = searchParams.get('calendar')
+    const success = searchParams.get('success')
+    
+    if (calendar === 'connected' && success === 'true') {
+      setSelectedSection('integrations')
+      // Clear the URL parameters after setting the section
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('calendar')
+      newUrl.searchParams.delete('success')
+      window.history.replaceState({}, '', newUrl.toString())
+    }
+  }, [searchParams])
 
   // Load current preferences
   useEffect(() => {

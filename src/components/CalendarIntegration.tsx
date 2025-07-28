@@ -29,15 +29,21 @@ export default function CalendarIntegration({
   const [isSyncing, setIsSyncing] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     checkConnectionStatus()
 
-    // Cleanup timeout on unmount
+    // Cleanup timeouts on unmount
     return () => {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current)
+      }
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
       }
     }
   }, [])
@@ -66,27 +72,35 @@ export default function CalendarIntegration({
 
     if (!isConnected) {
       setError('Please connect to Google Calendar in settings first')
+      setSyncStatus('error')
       return
     }
 
     // Validate inputs
     if (!milestoneId || !goalId || !milestoneTitle || !dueDate) {
       setError('Missing required information for sync')
+      setSyncStatus('error')
       return
     }
 
     // Validate date format
     if (!isValidDateFormat(dueDate)) {
       setError('Invalid date format. Expected YYYY-MM-DD')
+      setSyncStatus('error')
       return
     }
 
     setIsSyncing(true)
     setError(null)
+    setSuccess(null)
+    setSyncStatus('syncing')
 
-    // Clear any existing timeout
+    // Clear any existing timeouts
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current)
+    }
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current)
     }
 
     try {
@@ -107,12 +121,21 @@ export default function CalendarIntegration({
       const data = await res.json()
 
       if (res.ok && data.success) {
+        setSyncStatus('success')
+        setSuccess('Successfully synced to Google Calendar!')
         if (onSync) {
           onSync(data.eventId, data.eventUrl)
         }
         // Clear error on success
         setError(null)
+        
+        // Auto-clear success message after 3 seconds
+        successTimeoutRef.current = setTimeout(() => {
+          setSuccess(null)
+          setSyncStatus('idle')
+        }, 3000)
       } else {
+        setSyncStatus('error')
         // Handle specific error codes
         if (data.code === 'NOT_CONNECTED') {
           setError('Not connected to Google Calendar. Please reconnect in settings.')
@@ -126,14 +149,18 @@ export default function CalendarIntegration({
       }
     } catch (err) {
       console.error('Sync error:', err)
+      setSyncStatus('error')
       setError('Network error. Please check your connection and try again.')
     } finally {
       setIsSyncing(false)
 
       // Auto-clear error after 5 seconds
-      syncTimeoutRef.current = setTimeout(() => {
-        setError(null)
-      }, 5000)
+      if (syncStatus === 'error') {
+        syncTimeoutRef.current = setTimeout(() => {
+          setError(null)
+          setSyncStatus('idle')
+        }, 5000)
+      }
     }
   }
 
@@ -145,9 +172,23 @@ export default function CalendarIntegration({
         type="button"
         onClick={syncToCalendar}
         disabled={isSyncing}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        title={isSyncing ? 'Syncing...' : 'Sync this milestone to Google Calendar'}
-        aria-label={isSyncing ? 'Syncing milestone' : 'Sync milestone to calendar'}
+        className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${
+          syncStatus === 'success' 
+            ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100 focus:ring-green-500 animate-scale-in'
+            : syncStatus === 'error'
+            ? 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100 focus:ring-red-500 animate-scale-in'
+            : 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100 focus:ring-gray-500'
+        }`}
+        title={
+          syncStatus === 'success' ? 'Successfully synced to Google Calendar' :
+          syncStatus === 'error' ? 'Sync failed - click to retry' :
+          isSyncing ? 'Syncing...' : 'Sync this milestone to Google Calendar'
+        }
+        aria-label={
+          syncStatus === 'success' ? 'Successfully synced milestone' :
+          syncStatus === 'error' ? 'Sync failed - click to retry' :
+          isSyncing ? 'Syncing milestone' : 'Sync milestone to calendar'
+        }
       >
         {isSyncing ? (
           <>
@@ -173,6 +214,38 @@ export default function CalendarIntegration({
             </svg>
             Syncing…
           </>
+        ) : syncStatus === 'success' ? (
+          <>
+            <svg 
+              className="w-3 h-3 mr-1 text-green-600 animate-bounce-in" 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Synced
+          </>
+        ) : syncStatus === 'error' ? (
+          <>
+            <svg 
+              className="w-3 h-3 mr-1 text-red-600 animate-bounce-in" 
+              fill="currentColor" 
+              viewBox="0 0 20 20"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Retry
+          </>
         ) : (
           <>
             <svg 
@@ -194,11 +267,23 @@ export default function CalendarIntegration({
 
       {error && (
         <span 
-                      className="text-xs text-gray-600 animate-fade-in"
+          className="text-xs text-red-600 animate-fade-in max-w-xs truncate"
           role="alert"
           aria-live="polite"
+          title={error}
         >
           {error}
+        </span>
+      )}
+
+      {success && (
+        <span 
+          className="text-xs text-green-600 animate-fade-in max-w-xs truncate"
+          role="status"
+          aria-live="polite"
+          title={success}
+        >
+          {success}
         </span>
       )}
     </div>

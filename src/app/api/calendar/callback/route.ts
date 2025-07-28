@@ -8,6 +8,14 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = process.env.NEXTAUTH_URL + '/api/calendar/callback';
 
+// Validate environment variables
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !process.env.NEXTAUTH_URL) {
+  console.error('Missing required environment variables for Google Calendar OAuth');
+  console.error('GOOGLE_CLIENT_ID:', !!GOOGLE_CLIENT_ID);
+  console.error('GOOGLE_CLIENT_SECRET:', !!GOOGLE_CLIENT_SECRET);
+  console.error('NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+}
+
 const oauth2Client = new google.auth.OAuth2(
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -16,6 +24,8 @@ const oauth2Client = new google.auth.OAuth2(
 
 export async function GET(request: NextRequest) {
   console.log('OAuth callback called');
+  console.log('Request URL:', request.url);
+  console.log('REDIRECT_URI:', REDIRECT_URI);
   
   const session = await getServerSession(authOptions);
   
@@ -27,8 +37,15 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const error = searchParams.get('error');
+  const state = searchParams.get('state');
 
-  console.log('OAuth callback params:', { code: !!code, error });
+  console.log('OAuth callback params:', { 
+    code: !!code, 
+    error, 
+    state,
+    hasSession: !!session,
+    userEmail: session.user.email 
+  });
 
   if (error) {
     console.log('OAuth error:', error);
@@ -42,11 +59,13 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange authorization code for tokens
+    console.log('Exchanging code for tokens...');
     const { tokens } = await oauth2Client.getToken(code);
     console.log('Received tokens from Google:', {
       hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
-      expiryDate: tokens.expiry_date
+      expiryDate: tokens.expiry_date,
+      scope: tokens.scope
     });
     
     // Store tokens in database
@@ -80,6 +99,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/settings?calendar=connected&success=true', process.env.NEXTAUTH_URL!));
   } catch (error) {
     console.error('Error exchanging code for tokens:', error);
+    
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
+    
     return NextResponse.redirect(new URL('/dashboard?error=token_exchange_failed', process.env.NEXTAUTH_URL!));
   }
 }

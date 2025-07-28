@@ -150,105 +150,74 @@ export default function SettingsAccountSection({ isDeleting, handleDeleteAccount
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       {/* Data Export Section */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-8 border border-gray-200">
-        <div className="flex items-center mb-6">
-                          <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <div className="ml-4">
-            <h2 className="text-2xl font-bold text-gray-900 font-['Nanum_Myeongjo']">
-              Export Your Data
-            </h2>
-            <p className="text-gray-600 font-['Nanum_Myeongjo'] mt-1">
-              Download a complete copy of all your data in a readable format
-            </p>
-          </div>
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 font-['Nanum_Myeongjo']">
+          Export Your Data
+        </h2>
+        <p className="text-gray-600 font-['Nanum_Myeongjo'] mb-6">
+          Download a complete copy of all your data in a readable format
+        </p>
+        
+        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 mb-6">
+          <h3 className="font-semibold text-gray-900 font-['Nanum_Myeongjo'] mb-3">
+            What&apos;s included in your export:
+          </h3>
+          <ul className="text-sm text-gray-600 space-y-1 font-['Nanum_Myeongjo']">
+            <li>• All your journal entries</li>
+            <li>• Your goals and milestones</li>
+            <li>• Future letters to yourself</li>
+            <li>• Account preferences and settings</li>
+            <li>• AI Companion conversation history</li>
+          </ul>
         </div>
         
-                  <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <div className="flex items-start space-x-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <button
+          type="button"
+          onClick={handleExportData}
+          disabled={isExporting}
+          className="w-full inline-flex items-center justify-center rounded-lg px-8 h-14 text-lg font-semibold text-white bg-gray-900 hover:bg-gray-800 active:bg-black transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-['Nanum_Myeongjo']"
+        >
+          {isExporting ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 font-['Nanum_Myeongjo'] mb-2">
-                What&apos;s included in your export:
-              </h3>
-              <ul className="text-sm text-gray-600 space-y-1 font-['Nanum_Myeongjo']">
-                <li>• All your journal entries</li>
-                <li>• Your goals and milestones</li>
-                <li>• Future letters to yourself</li>
-                <li>• Account preferences and settings</li>
-                <li>• AI Companion conversation history</li>
-              </ul>
-            </div>
+              Preparing Download...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download My Data
+            </>
+          )}
+        </button>
+        {exportError && (
+          <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-gray-700 font-['Nanum_Myeongjo']">{exportError}</p>
           </div>
-          
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={handleExportData}
-              disabled={isExporting}
-              className="w-full inline-flex items-center justify-center rounded-lg px-6 h-12 text-base font-semibold text-white bg-gray-600 hover:bg-gray-700 active:bg-gray-800 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-['Nanum_Myeongjo']"
-            >
-              {isExporting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Preparing Download...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download My Data
-                </>
-              )}
-            </button>
-            {exportError && (
-              <div className="mt-3 p-3 rounded-md text-sm bg-gray-50 text-gray-800 border border-gray-200 text-center">
-                {exportError}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Account Deletion Section */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-8 border border-gray-200">
-        <div className="flex items-center mb-6">
-          <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </div>
-          <div className="ml-4">
-            <h2 className="text-2xl font-bold text-gray-900 font-['Nanum_Myeongjo']">
-              Delete Account
-            </h2>
-            <p className="text-gray-600 font-['Nanum_Myeongjo'] mt-1">
-              Permanently remove your account and all associated data
-            </p>
-          </div>
-        </div>
+      <div className="pt-6 border-t border-gray-200">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 font-['Nanum_Myeongjo']">
+          Delete Account
+        </h2>
+        <p className="text-gray-600 font-['Nanum_Myeongjo'] mb-6">
+          Permanently remove your account and all associated data
+        </p>
 
-        <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <div className="flex items-start space-x-4 mb-6">
-            <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <div className="flex-1">
+        <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 mb-6">
+          <div className="flex items-start space-x-3 mb-4">
+            <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
               <h3 className="font-semibold text-gray-800 font-['Nanum_Myeongjo'] mb-2">
                 This action cannot be undone
               </h3>
@@ -258,58 +227,56 @@ export default function SettingsAccountSection({ isDeleting, handleDeleteAccount
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <ul className="text-sm text-gray-700 space-y-1 font-['Nanum_Myeongjo']">
-              <li>• All your goals and milestones</li>
-              <li>• Your AI assistant preferences and coaching history</li>
-              <li>• Your academic information and profile</li>
-              <li>• All journal entries and future letters</li>
-              <li>• Your account settings and preferences</li>
-            </ul>
-          </div>
+          <ul className="text-sm text-gray-700 space-y-1 font-['Nanum_Myeongjo']">
+            <li>• All your goals and milestones</li>
+            <li>• Your AI assistant preferences and coaching history</li>
+            <li>• Your academic information and profile</li>
+            <li>• All journal entries and future letters</li>
+            <li>• Your account settings and preferences</li>
+          </ul>
+        </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start space-x-3">
-              <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div className="text-sm text-gray-800 font-['Nanum_Myeongjo']">
-                <p className="font-medium mb-1">Google Calendar Integration</p>
-                <p>
-                  If you connected Google Calendar, you must also remove this app from your 
-                  <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="underline ml-1">
-                    Google Account permissions
-                  </a> 
-                  to fully disconnect.
-                </p>
-              </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start space-x-3">
+            <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-sm text-gray-800 font-['Nanum_Myeongjo']">
+              <p className="font-medium mb-1">Google Calendar Integration</p>
+              <p>
+                If you connected Google Calendar, you must also remove this app from your 
+                <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="underline ml-1">
+                  Google Account permissions
+                </a> 
+                to fully disconnect.
+              </p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleDeleteAccount}
-            disabled={isDeleting}
-            className="w-full inline-flex items-center justify-center rounded-lg px-6 h-12 text-base font-semibold text-white bg-gray-600 hover:bg-gray-700 active:bg-gray-800 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-['Nanum_Myeongjo']"
-          >
-            {isDeleting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Deleting Account...
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete My Account
-              </>
-            )}
-          </button>
         </div>
+
+        <button
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={isDeleting}
+          className="w-full inline-flex items-center justify-center rounded-lg px-8 h-14 text-lg font-semibold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-['Nanum_Myeongjo']"
+        >
+          {isDeleting ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Deleting Account...
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete My Account
+            </>
+          )}
+        </button>
       </div>
 
       {/* Password Modal */}
@@ -317,12 +284,7 @@ export default function SettingsAccountSection({ isDeleting, handleDeleteAccount
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 border border-gray-200">
             {/* Header */}
-            <div className="px-6 py-8 text-center border-b border-gray-100">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
+            <div className="px-6 py-6 text-center border-b border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 font-['Nanum_Myeongjo'] mb-2">
                 Re-enter Your Password
               </h3>
@@ -422,8 +384,6 @@ export default function SettingsAccountSection({ isDeleting, handleDeleteAccount
                   </button>
                 </div>
               </form>
-
-              
             </div>
           </div>
         </div>

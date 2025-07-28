@@ -1,3 +1,4 @@
+-- PostgreSQL migration
 -- CreateEnum
 CREATE TYPE "Mood" AS ENUM ('HAPPY', 'SAD', 'NEUTRAL', 'ANXIOUS', 'MOTIVATED', 'STRESSED');
 

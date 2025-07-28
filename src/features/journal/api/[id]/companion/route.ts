@@ -9,14 +9,7 @@ const INFERENCE_PROFILE_ID = process.env.BEDROCK_INFERENCE_PROFILE_ID;
 
 
 
-const SYSTEM_PROMPT = `You are an academic journey companion for a PhD aspirant. Your role is to support, encourage, and constructively engage the user in daily reflection and growth.
-- Respond empathetically and non-judgmentally.
-- Reference the user's recent mood, goals, or patterns if relevant.
-- Ask thoughtful, open-ended questions, but do not overwhelm the user.
-- Offer actionable suggestions only if appropriate and welcomed.
-- Never give medical or mental health advice; instead, encourage self-care and seeking support if needed.
-- Keep your responses concise, friendly, and conversational.
-- Never be condescending or overly formal.`;
+const SYSTEM_PROMPT = `You are a supportive academic companion for a PhD student. Keep responses under 2-3 sentences. Be warm but brief. Ask one question at a time. Focus on the user's immediate concerns.`;
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -62,35 +55,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Build context for AI using plaintext conversation from client
     const contextMessages = conversationHistory || [];
     
-    // Generate summary if conversation is long
-    if (contextMessages.length > 10) {
-      const earlierMessages = contextMessages.slice(0, -10);
-      const summaryPrompt = `Summarize the following conversation between a user and their academic journey companion in 2-3 sentences, focusing on the user's mood, main topics, and any actionable points.\n\nConversation:\n${earlierMessages.map((m: any) => `[${m.role === 'user' ? 'User' : 'Companion'}] ${m.content}`).join('\n')}\n\nSummary:`;
-      
-      const summaryInput = {
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: 128,
-        messages: [{ role: 'user', content: summaryPrompt }],
-        temperature: 0.3,
-        top_p: 0.9
-      };
-      
-      const summaryCommand = createBedrockCommand(INFERENCE_PROFILE_ID!, summaryInput);
-      
-      try {
-        const summaryResult = await invokeBedrockWithRetry(summaryCommand, 2);
-        if (summaryResult.content && Array.isArray(summaryResult.content)) {
-                  // Note: summaryText was generated but not used in this implementation
-        }
-      } catch (err) {
-        console.error('Error generating summary:', err);
-        // Continue without summary if it fails
-      }
-    }
+    // Note: Summaries are generated retrospectively, not during active conversations
+    // This prevents excessive API calls and allows for better context when summarizing
 
     // Fetch user context (mood, summaries, goals)
     let moodSummary = '';
-    let summariesSummary = '';
     let goalsSummary = '';
     
     try {
@@ -134,9 +103,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
       
       // Continue with weekly and daily summaries...
-      summariesSummary = summaries.length > 0 
-        ? 'Recent summaries: ' + summaries.join(' | ')
-        : 'Recent summaries: N/A';
+      // summariesSummary = summaries.length > 0 
+      //   ? 'Recent summaries: ' + summaries.join(' | ')
+      //   : 'Recent summaries: N/A';
     } catch {}
     
     try {
@@ -162,28 +131,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         assistantTone: true
       }
     });
-    const background = user?.background || null;
+    // const background = user?.background || null;
     const assistantTone = user?.assistantTone || 'encouraging';
     
     // Build tone-specific system prompt
     let toneInstruction = '';
     switch (assistantTone) {
       case 'encouraging':
-        toneInstruction = 'Be supportive and motivating, offering gentle encouragement and positive reinforcement.';
+        toneInstruction = 'Be warm and supportive.';
         break;
       case 'inspirational':
-        toneInstruction = 'Be uplifting and inspiring, using motivational language and emphasizing the user\'s potential.';
+        toneInstruction = 'Be uplifting and motivating.';
         break;
       case 'tough_love':
-        toneInstruction = 'Be direct and challenging, pushing the user to take action while still being constructive.';
+        toneInstruction = 'Be direct but constructive.';
         break;
       default:
-        toneInstruction = 'Be supportive and motivating, offering gentle encouragement and positive reinforcement.';
+        toneInstruction = 'Be warm and supportive.';
     }
     
-    const dynamicSystemPrompt = `${SYSTEM_PROMPT}\n\nTone instruction: ${toneInstruction}`;
+    const dynamicSystemPrompt = `${SYSTEM_PROMPT} ${toneInstruction}`;
     
-    const contextString = `[User context: ${moodSummary}. ${summariesSummary}. ${goalsSummary}.${background ? ` Background: ${background}` : ''}]`;
+    const contextString = `[Context: ${moodSummary}. ${goalsSummary}.]`;
 
     // Build Bedrock chat message array using PLAINTEXT from client
     const recentMessages = contextMessages.slice(-10);
@@ -198,7 +167,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     
     const modelInput = {
       anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 512,
+      max_tokens: 150,
       messages: bedrockMessages,
       system: dynamicSystemPrompt,
       temperature: 0.7,

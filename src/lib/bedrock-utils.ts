@@ -17,7 +17,13 @@ export async function invokeBedrockWithRetry(command: InvokeModelCommand, maxRet
     try {
       const response = await bedrockClient.send(command);
       const responseBody = new TextDecoder().decode(response.body);
-      return JSON.parse(responseBody);
+      try {
+        return JSON.parse(responseBody);
+      } catch (parseError) {
+        console.error('Failed to parse Bedrock response as JSON:', parseError);
+        console.error('Raw response body:', responseBody);
+        throw new Error('Invalid JSON response from Bedrock');
+      }
     } catch (error: any) {
       lastError = error;
       

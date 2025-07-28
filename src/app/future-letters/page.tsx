@@ -83,18 +83,29 @@ export default function FutureLettersPage() {
     if (!letters.length) return;
     const now = new Date();
     // Track shown popups in sessionStorage
-    const shownIds = new Set(
-      (typeof window !== 'undefined' && sessionStorage.getItem('unlockedLetterPopups'))
-        ? JSON.parse(sessionStorage.getItem('unlockedLetterPopups')!)
-        : []
-    );
+    let shownIds = new Set<string>();
+    try {
+      const storedPopups = sessionStorage.getItem('unlockedLetterPopups');
+      if (storedPopups) {
+        shownIds = new Set(JSON.parse(storedPopups));
+      }
+    } catch (error) {
+      console.error('Failed to parse unlocked letter popups from sessionStorage:', error);
+      // Clear invalid data
+      sessionStorage.removeItem('unlockedLetterPopups');
+    }
+    
     const readyLetter = letters.find(
       (l) => new Date(l.unlockDate) <= now && !shownIds.has(l.id)
     );
     if (readyLetter) {
       setUnlockPopup({ id: readyLetter.id, title: readyLetter.title });
       shownIds.add(readyLetter.id);
-      sessionStorage.setItem('unlockedLetterPopups', JSON.stringify(Array.from(shownIds)));
+      try {
+        sessionStorage.setItem('unlockedLetterPopups', JSON.stringify(Array.from(shownIds)));
+      } catch (error) {
+        console.error('Failed to save unlocked letter popups to sessionStorage:', error);
+      }
     }
   }, [letters]);
 
